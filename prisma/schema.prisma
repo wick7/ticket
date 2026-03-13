@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model OAuthToken {
+  id          String   @id @default(cuid())
+  service     String   // "slack" | "outlook" | "teams"
+  token       String   // AES-encrypted access token
+  refreshToken String? // AES-encrypted refresh token
+  expiresAt   DateTime?
+  metadata    Json     @default("{}")  // last_fetched_at, workspace name, display name, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([service])
+}
+
+model SeenMessage {
+  id        String   @id  // external message ID (from Slack/Graph)
+  service   String   // "slack" | "outlook" | "teams" | "manual"
+  seenAt    DateTime @default(now())
+}
+
+model Ticket {
+  id            String   @id @default(cuid())
+  title         String
+  body          String
+  requester     String
+  company       String
+  status        String   @default("todo")   // todo | in_progress | blocked | not_needed | completed
+  urgency       String   @default("medium") // low | medium | high
+  orderIndex    Float    @default(0)        // drag-and-drop global priority
+  sourceService String   // slack | outlook | teams | manual
+  sourceRef      String?  // original message ID or URL
+  category       String?  @default("")
+  ticketNumber   String   @default("")
+  trackedMinutes Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  boards        BoardTicket[]
+  timeEntries   TimeEntry[]
+}
+
+model Board {
+  id          String        @id @default(cuid())
+  name        String
+  savedFilter Json          @default("{}")  // { company, status, urgency, sourceService }
+  createdAt   DateTime      @default(now())
+  tickets     BoardTicket[]
+}
+
+model BoardTicket {
+  boardId    String
+  ticketId   String
+  orderIndex Float  @default(0)
+
+  board  Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@id([boardId, ticketId])
+}
+
+model PresetCompany {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model PresetCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model TimeEntry {
+  id        String   @id @default(cuid())
+  ticketId  String
+  minutes   Int
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
