@@ -34,8 +34,10 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export async function fetchTeamsMessages(): Promise<FetchedMessage[]> {
-  const record = await prisma.oAuthToken.findUnique({ where: { service: "outlook" } });
+export async function fetchTeamsMessages(userId: string): Promise<FetchedMessage[]> {
+  const record = await prisma.oAuthToken.findUnique({
+    where: { service_userId: { service: "outlook", userId } },
+  });
   if (!record) return []; // Teams uses same Microsoft token
 
   let token = decrypt(record.token);
@@ -45,7 +47,7 @@ export async function fetchTeamsMessages(): Promise<FetchedMessage[]> {
       if (refreshed) {
         token = refreshed.accessToken;
         await prisma.oAuthToken.update({
-          where: { service: "outlook" },
+          where: { service_userId: { service: "outlook", userId } },
           data: {
             token: encrypt(refreshed.accessToken),
             refreshToken: refreshed.refreshToken ? encrypt(refreshed.refreshToken) : record.refreshToken,
@@ -108,7 +110,9 @@ export async function fetchTeamsMessages(): Promise<FetchedMessage[]> {
         continue;
 
       const msgId = `teams:${chat.id}:${msg.id}`;
-      const seen = await prisma.seenMessage.findUnique({ where: { id: msgId } });
+      const seen = await prisma.seenMessage.findUnique({
+        where: { messageId_userId: { messageId: msgId, userId } },
+      });
       if (seen) continue;
 
       const text =
@@ -130,7 +134,7 @@ export async function fetchTeamsMessages(): Promise<FetchedMessage[]> {
 
   // Update Teams-specific last_fetched_at in the same record metadata
   await prisma.oAuthToken.update({
-    where: { service: "outlook" },
+    where: { service_userId: { service: "outlook", userId } },
     data: {
       metadata: {
         ...(record.metadata as object),

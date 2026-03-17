@@ -26,8 +26,10 @@ export interface FetchedMessage {
   timestamp: Date;
 }
 
-export async function fetchOutlookMessages(): Promise<FetchedMessage[]> {
-  const record = await prisma.oAuthToken.findUnique({ where: { service: "outlook" } });
+export async function fetchOutlookMessages(userId: string): Promise<FetchedMessage[]> {
+  const record = await prisma.oAuthToken.findUnique({
+    where: { service_userId: { service: "outlook", userId } },
+  });
   if (!record) return [];
 
   // Refresh token if expired or close to expiry
@@ -38,7 +40,7 @@ export async function fetchOutlookMessages(): Promise<FetchedMessage[]> {
       if (refreshed) {
         token = refreshed.accessToken;
         await prisma.oAuthToken.update({
-          where: { service: "outlook" },
+          where: { service_userId: { service: "outlook", userId } },
           data: {
             token: encrypt(refreshed.accessToken),
             refreshToken: refreshed.refreshToken ? encrypt(refreshed.refreshToken) : record.refreshToken,
@@ -74,7 +76,9 @@ export async function fetchOutlookMessages(): Promise<FetchedMessage[]> {
 
   for (const msg of data.value ?? []) {
     const msgId = `outlook:${msg.id}`;
-    const seen = await prisma.seenMessage.findUnique({ where: { id: msgId } });
+    const seen = await prisma.seenMessage.findUnique({
+      where: { messageId_userId: { messageId: msgId, userId } },
+    });
     if (seen) continue;
 
     messages.push({
@@ -88,7 +92,7 @@ export async function fetchOutlookMessages(): Promise<FetchedMessage[]> {
   }
 
   await prisma.oAuthToken.update({
-    where: { service: "outlook" },
+    where: { service_userId: { service: "outlook", userId } },
     data: { metadata: { ...metadata, last_fetched_at: new Date().toISOString() } },
   });
 

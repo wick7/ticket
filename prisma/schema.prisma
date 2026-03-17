@@ -7,35 +7,62 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model OAuthToken {
-  id          String   @id @default(cuid())
-  service     String   // "slack" | "outlook" | "teams"
-  token       String   // AES-encrypted access token
-  refreshToken String? // AES-encrypted refresh token
-  expiresAt   DateTime?
-  metadata    Json     @default("{}")  // last_fetched_at, workspace name, display name, etc.
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@unique([service])
+  oauthTokens      OAuthToken[]
+  tickets          Ticket[]
+  boards           Board[]
+  boardMembers     BoardMember[]
+  seenMessages     SeenMessage[]
+  presetCompanies  PresetCompany[]
+  presetCategories PresetCategory[]
+}
+
+model OAuthToken {
+  id           String    @id @default(cuid())
+  userId       String
+  service      String    // "slack" | "outlook" | "teams" | "gmail"
+  token        String    // AES-encrypted access token
+  refreshToken String?   // AES-encrypted refresh token
+  expiresAt    DateTime?
+  metadata     Json      @default("{}")  // last_fetched_at, workspace name, display name, etc.
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([service, userId])
 }
 
 model SeenMessage {
-  id        String   @id  // external message ID (from Slack/Graph)
-  service   String   // "slack" | "outlook" | "teams" | "manual"
+  id        String   @id @default(cuid())
+  messageId String   // external message ID (from Slack/Graph/Gmail)
+  userId    String
+  service   String   // "slack" | "outlook" | "teams" | "gmail" | "manual"
   seenAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
 }
 
 model Ticket {
-  id            String   @id @default(cuid())
-  title         String
-  body          String
-  requester     String
-  company       String
-  status        String   @default("todo")   // todo | in_progress | blocked | not_needed | completed
-  urgency       String   @default("medium") // low | medium | high
-  orderIndex    Float    @default(0)        // drag-and-drop global priority
-  sourceService String   // slack | outlook | teams | manual
+  id             String   @id @default(cuid())
+  userId         String
+  title          String
+  body           String
+  requester      String
+  company        String
+  status         String   @default("todo")   // todo | in_progress | blocked | not_needed | completed
+  urgency        String   @default("medium") // low | medium | high
+  orderIndex     Float    @default(0)        // drag-and-drop global priority
+  sourceService  String   // slack | outlook | teams | gmail | manual
   sourceRef      String?  // original message ID or URL
   category       String?  @default("")
   ticketNumber   String   @default("")
@@ -43,16 +70,33 @@ model Ticket {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  boards        BoardTicket[]
-  timeEntries   TimeEntry[]
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boards      BoardTicket[]
+  timeEntries TimeEntry[]
 }
 
 model Board {
   id          String        @id @default(cuid())
+  userId      String
   name        String
   savedFilter Json          @default("{}")  // { company, status, urgency, sourceService }
   createdAt   DateTime      @default(now())
-  tickets     BoardTicket[]
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tickets BoardTicket[]
+  members BoardMember[]
+}
+
+model BoardMember {
+  boardId  String
+  userId   String
+  role     String   @default("member") // "owner" | "member"
+  joinedAt DateTime @default(now())
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([boardId, userId])
 }
 
 model BoardTicket {
@@ -68,14 +112,24 @@ model BoardTicket {
 
 model PresetCompany {
   id        String   @id @default(cuid())
-  name      String   @unique
+  userId    String
+  name      String
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([name, userId])
 }
 
 model PresetCategory {
   id        String   @id @default(cuid())
-  name      String   @unique
+  userId    String
+  name      String
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([name, userId])
 }
 
 model TimeEntry {
@@ -85,5 +139,5 @@ model TimeEntry {
   date      DateTime
   createdAt DateTime @default(now())
 
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 }

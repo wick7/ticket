@@ -4,21 +4,21 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
-  const { email, password } = await request.json();
+  const { email, password, name } = await request.json();
 
   if (!email?.trim() || !password?.trim()) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return NextResponse.json({ error: "Email already registered" }, { status: 409 });
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
+  const passwordHash = await bcrypt.hash(password, 12);
+  const user = await prisma.user.create({
+    data: { email, passwordHash, name: name?.trim() ?? "" },
+  });
 
   const token = await createToken(user.id, user.email);
 

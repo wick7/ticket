@@ -6,8 +6,8 @@ const secret = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "dev-secret-change-me"
 );
 
-export async function createToken() {
-  return new SignJWT({ authenticated: true })
+export async function createToken(userId: string, email: string) {
+  return new SignJWT({ userId, email })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
     .sign(secret);
@@ -16,7 +16,7 @@ export async function createToken() {
 export async function verifyToken(token: string) {
   try {
     const { payload } = await jwtVerify(token, secret);
-    return payload;
+    return payload as { userId: string; email: string };
   } catch {
     return null;
   }
@@ -29,9 +29,10 @@ export async function getSession() {
   return verifyToken(token);
 }
 
-export async function requireAuth(request: NextRequest) {
+export async function requireAuth(request: NextRequest): Promise<string | false> {
   const token = request.cookies.get("session")?.value;
   if (!token) return false;
   const payload = await verifyToken(token);
-  return payload !== null;
+  if (!payload) return false;
+  return payload.userId;
 }

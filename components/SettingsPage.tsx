@@ -14,6 +14,7 @@ interface Status {
   slack: SourceStatus;
   outlook: SourceStatus;
   teams: SourceStatus;
+  gmail: SourceStatus;
 }
 
 function formatTime(iso: string | null | undefined): string {
@@ -90,7 +91,7 @@ function SourceCard({
   );
 }
 
-export function SettingsPage() {
+export function SettingsPage({ currentUserId: _currentUserId }: { currentUserId: string }) {
   const [status, setStatus] = useState<Status | null>(null);
   const searchParams = useSearchParams();
 
@@ -123,7 +124,12 @@ export function SettingsPage() {
       {connected && (
         <div className="mb-4 bg-green-900/30 border border-green-700/50 rounded-lg px-4 py-3 text-green-300 text-sm">
           Successfully connected{" "}
-          {connected === "microsoft" ? "Microsoft (Outlook + Teams)" : "Slack"}.
+          {connected === "microsoft"
+            ? "Microsoft (Outlook + Teams)"
+            : connected === "gmail"
+            ? "Gmail"
+            : "Slack"}
+          .
         </div>
       )}
       {error && (
@@ -161,6 +167,15 @@ export function SettingsPage() {
           onDisconnect={handleDisconnect}
         />
 
+        <SourceCard
+          name="Gmail"
+          description="Reads your unread Gmail messages (gmail.readonly — read-only access)."
+          connectHref="/api/sources/gmail/connect"
+          status={status?.gmail}
+          service="gmail"
+          onDisconnect={handleDisconnect}
+        />
+
         <div className="bg-blue-950/40 border border-blue-800/40 rounded-xl p-5">
           <h2 className="text-white font-semibold">Manual Input</h2>
           <p className="text-zinc-400 text-sm mt-1">
@@ -188,6 +203,16 @@ export function SettingsPage() {
                 <li>Authentication → Add redirect URI: <code className="text-zinc-300 bg-zinc-800 px-1 rounded text-xs">http://localhost:3000/api/sources/microsoft/callback</code></li>
                 <li>API permissions → Add: Mail.Read, Chat.Read, offline_access (all delegated)</li>
                 <li>Certificates &amp; secrets → New client secret → Copy into .env.local</li>
+              </ol>
+            </div>
+            <div>
+              <p className="text-zinc-200 font-medium mb-1">Gmail</p>
+              <ol className="list-decimal list-inside space-y-1 text-zinc-400">
+                <li>console.cloud.google.com → New project → Enable Gmail API</li>
+                <li>APIs &amp; Services → OAuth consent screen → External → Add test users</li>
+                <li>Credentials → Create OAuth 2.0 Client ID → Web application</li>
+                <li>Authorized redirect URI: <code className="text-zinc-300 bg-zinc-800 px-1 rounded text-xs">http://localhost:3000/api/sources/gmail/callback</code></li>
+                <li>Copy Client ID + Secret → paste into .env.local as <code className="text-zinc-300 bg-zinc-800 px-1 rounded text-xs">GOOGLE_CLIENT_ID</code> / <code className="text-zinc-300 bg-zinc-800 px-1 rounded text-xs">GOOGLE_CLIENT_SECRET</code></li>
               </ol>
             </div>
           </div>

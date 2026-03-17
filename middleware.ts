@@ -4,8 +4,12 @@ import { requireAuth } from "@/lib/auth";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page and auth API
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth")) {
+  // Allow login/register pages and auth API
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/api/auth")
+  ) {
     return NextResponse.next();
   }
 

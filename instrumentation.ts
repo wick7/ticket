@@ -1,5 +1,5 @@
 // Runs once when the Next.js server starts (Node.js runtime only).
-// Schedules periodic background ingestion while the app is running.
+// Schedules periodic background ingestion for all users.
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
@@ -20,114 +20,156 @@ export async function register() {
       const { fetchSlackMessages } = await import("@/lib/sources/slack");
       const { fetchOutlookMessages } = await import("@/lib/sources/outlook");
       const { fetchTeamsMessages } = await import("@/lib/sources/teams");
+      const { fetchGmailMessages } = await import("@/lib/sources/gmail");
 
-      let total = 0;
+      // Get all users who have at least one OAuth token
+      const usersWithTokens = await prisma.oAuthToken.findMany({
+        select: { userId: true },
+        distinct: ["userId"],
+      });
 
-      async function createTicket(data: {
-        title: string;
-        body: string;
-        requester: string;
-        company: string;
-        urgency: string;
-        sourceService: string;
-        sourceRef: string;
-      }) {
-        const ticketNumber = await generateTicketNumber(data.company);
-        await prisma.ticket.updateMany({ data: { orderIndex: { increment: 1 } } });
-        await prisma.ticket.create({ data: { ...data, ticketNumber, status: "todo", orderIndex: 0 } });
-        total++;
-      }
+      let totalCreated = 0;
 
-      function inferCompany(email: string): string {
-        if (!email?.includes("@")) return "Unknown";
-        const domain = email.split("@")[1];
-        const personal = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com"];
-        if (personal.includes(domain)) return "Unknown";
-        return domain.split(".")[0].replace(/^\w/, (c: string) => c.toUpperCase());
-      }
+      for (const { userId } of usersWithTokens) {
+        let userTotal = 0;
 
-      // Slack
-      try {
-        const msgs = await fetchSlackMessages();
-        for (const msg of msgs) {
-          const results = await classifyMessage(msg.text, {
-            senderName: msg.senderName,
-            company: msg.teamName,
-            source: `Slack #${msg.channelName}`,
-          });
-          await prisma.seenMessage.create({ data: { id: msg.id, service: "slack" } });
-          for (const r of results) {
-            if (!r.ticketable) continue;
-            await createTicket({
-              title: r.title!,
-              body: r.body!,
-              requester: r.requester ?? msg.senderName,
-              company: r.company ?? msg.teamName,
-              urgency: r.urgency ?? "medium",
-              sourceService: "slack",
-              sourceRef: msg.id,
-            });
-          }
+        async function createTicket(data: {
+          title: string;
+          body: string;
+          requester: string;
+          company: string;
+          urgency: string;
+          sourceService: string;
+          sourceRef: string;
+        }) {
+          const ticketNumber = await generateTicketNumber(data.company);
+          await prisma.ticket.updateMany({ where: { userId }, data: { orderIndex: { increment: 1 } } });
+          await prisma.ticket.create({ data: { userId, ...data, ticketNumber, status: "todo", orderIndex: 0 } });
+          userTotal++;
+          totalCreated++;
         }
-      } catch (e) {
-        console.error("[TicketFlow] Slack sync error:", e);
-      }
 
-      // Outlook
-      try {
-        const msgs = await fetchOutlookMessages();
-        for (const msg of msgs) {
-          const results = await classifyMessage(
-            `Subject: ${msg.subject}\n\n${msg.text}`,
-            { senderName: msg.senderName, source: "Outlook email" }
-          );
-          await prisma.seenMessage.create({ data: { id: msg.id, service: "outlook" } });
-          for (const r of results) {
-            if (!r.ticketable) continue;
-            await createTicket({
-              title: r.title!,
-              body: r.body!,
-              requester: r.requester ?? msg.senderName,
-              company: r.company ?? inferCompany(msg.senderEmail),
-              urgency: r.urgency ?? "medium",
-              sourceService: "outlook",
-              sourceRef: msg.id,
-            });
-          }
+        function inferCompany(email: string): string {
+          if (!email?.includes("@")) return "Unknown";
+          const domain = email.split("@")[1];
+          const personal = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com"];
+          if (personal.includes(domain)) return "Unknown";
+          return domain.split(".")[0].replace(/^\w/, (c: string) => c.toUpperCase());
         }
-      } catch (e) {
-        console.error("[TicketFlow] Outlook sync error:", e);
-      }
 
-      // Teams
-      try {
-        const msgs = await fetchTeamsMessages();
-        for (const msg of msgs) {
-          const results = await classifyMessage(msg.text, {
-            senderName: msg.senderName,
-            source: `Teams chat: ${msg.chatName}`,
-          });
-          await prisma.seenMessage.create({ data: { id: msg.id, service: "teams" } });
-          for (const r of results) {
-            if (!r.ticketable) continue;
-            await createTicket({
-              title: r.title!,
-              body: r.body!,
-              requester: r.requester ?? msg.senderName,
-              company: r.company ?? "Unknown",
-              urgency: r.urgency ?? "medium",
-              sourceService: "teams",
-              sourceRef: msg.id,
+        // Slack
+        try {
+          const msgs = await fetchSlackMessages(userId);
+          for (const msg of msgs) {
+            const results = await classifyMessage(msg.text, {
+              senderName: msg.senderName,
+              company: msg.teamName,
+              source: `Slack #${msg.channelName}`,
             });
+            await prisma.seenMessage.create({ data: { messageId: msg.id, userId, service: "slack" } });
+            for (const r of results) {
+              if (!r.ticketable) continue;
+              await createTicket({
+                title: r.title!,
+                body: r.body!,
+                requester: r.requester ?? msg.senderName,
+                company: r.company ?? msg.teamName,
+                urgency: r.urgency ?? "medium",
+                sourceService: "slack",
+                sourceRef: msg.id,
+              });
+            }
           }
+        } catch (e) {
+          console.error(`[TicketFlow] Slack sync error for user ${userId}:`, e);
         }
-      } catch (e) {
-        console.error("[TicketFlow] Teams sync error:", e);
+
+        // Outlook
+        try {
+          const msgs = await fetchOutlookMessages(userId);
+          for (const msg of msgs) {
+            const results = await classifyMessage(
+              `Subject: ${msg.subject}\n\n${msg.text}`,
+              { senderName: msg.senderName, source: "Outlook email" }
+            );
+            await prisma.seenMessage.create({ data: { messageId: msg.id, userId, service: "outlook" } });
+            for (const r of results) {
+              if (!r.ticketable) continue;
+              await createTicket({
+                title: r.title!,
+                body: r.body!,
+                requester: r.requester ?? msg.senderName,
+                company: r.company ?? inferCompany(msg.senderEmail),
+                urgency: r.urgency ?? "medium",
+                sourceService: "outlook",
+                sourceRef: msg.id,
+              });
+            }
+          }
+        } catch (e) {
+          console.error(`[TicketFlow] Outlook sync error for user ${userId}:`, e);
+        }
+
+        // Teams
+        try {
+          const msgs = await fetchTeamsMessages(userId);
+          for (const msg of msgs) {
+            const results = await classifyMessage(msg.text, {
+              senderName: msg.senderName,
+              source: `Teams chat: ${msg.chatName}`,
+            });
+            await prisma.seenMessage.create({ data: { messageId: msg.id, userId, service: "teams" } });
+            for (const r of results) {
+              if (!r.ticketable) continue;
+              await createTicket({
+                title: r.title!,
+                body: r.body!,
+                requester: r.requester ?? msg.senderName,
+                company: r.company ?? "Unknown",
+                urgency: r.urgency ?? "medium",
+                sourceService: "teams",
+                sourceRef: msg.id,
+              });
+            }
+          }
+        } catch (e) {
+          console.error(`[TicketFlow] Teams sync error for user ${userId}:`, e);
+        }
+
+        // Gmail
+        try {
+          const msgs = await fetchGmailMessages(userId);
+          for (const msg of msgs) {
+            const results = await classifyMessage(
+              `Subject: ${msg.subject}\n\n${msg.text}`,
+              { senderName: msg.senderName, source: "Gmail" }
+            );
+            await prisma.seenMessage.create({ data: { messageId: msg.id, userId, service: "gmail" } });
+            for (const r of results) {
+              if (!r.ticketable) continue;
+              await createTicket({
+                title: r.title!,
+                body: r.body!,
+                requester: r.requester ?? msg.senderName,
+                company: r.company ?? inferCompany(msg.senderEmail),
+                urgency: r.urgency ?? "medium",
+                sourceService: "gmail",
+                sourceRef: msg.id,
+              });
+            }
+          }
+        } catch (e) {
+          console.error(`[TicketFlow] Gmail sync error for user ${userId}:`, e);
+        }
+
+        if (userTotal > 0) {
+          console.log(`[TicketFlow] User ${userId}: ${userTotal} new ticket${userTotal !== 1 ? "s" : ""}`);
+        }
       }
 
-      if (total > 0) {
+      if (totalCreated > 0) {
         console.log(
-          `[TicketFlow] Sync complete — ${total} new ticket${total !== 1 ? "s" : ""} created.`
+          `[TicketFlow] Sync complete — ${totalCreated} new ticket${totalCreated !== 1 ? "s" : ""} created.`
         );
       }
     } catch (e) {

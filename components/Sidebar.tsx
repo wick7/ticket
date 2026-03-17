@@ -65,7 +65,7 @@ export function Sidebar() {
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {navItem("/dashboard", "All Tickets")}
-          {navItem("/settings", "Settings")}
+          {/* {navItem("/settings", "Settings")} */}
           {navItem("/time", "Time")}
           {navItem("/config", "Configuration")}
 

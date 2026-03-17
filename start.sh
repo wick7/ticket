@@ -8,7 +8,7 @@ if [ ! -f ".env.local" ]; then
   echo "⚠️  No .env.local found. Copying from example..."
   cp .env.local.example .env.local
   echo "✅ Created .env.local — please edit it with your API keys before continuing."
-  echo "   At minimum, set LOCAL_PASSWORD, JWT_SECRET, and ENCRYPTION_KEY."
+  echo "   At minimum, set JWT_SECRET and ENCRYPTION_KEY."
   exit 1
 fi
 
@@ -23,14 +23,14 @@ docker compose up -d
 
 # Wait for postgres to be ready
 echo "Waiting for PostgreSQL to be ready..."
-until docker compose exec postgres pg_isready -U ticketflow > /dev/null 2>&1; do
+until docker compose exec db pg_isready -U ticketflow > /dev/null 2>&1; do
   sleep 1
 done
 echo "PostgreSQL ready."
 
-# Push DB schema
-echo "Syncing database schema..."
-npx prisma db push
+# Run migrations
+echo "Running database migrations..."
+npx prisma migrate deploy
 
 # Start Next.js
 echo "Starting app at http://localhost:3000"

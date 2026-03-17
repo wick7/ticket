@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
+  const userId = await requireAuth(request);
+  if (!userId) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   const error = searchParams.get("error");
@@ -43,9 +49,10 @@ export async function GET(request: NextRequest) {
   const teamName = data.team?.name ?? "Slack";
 
   await prisma.oAuthToken.upsert({
-    where: { service: "slack" },
+    where: { service_userId: { service: "slack", userId } },
     create: {
       service: "slack",
+      userId,
       token: encrypt(userToken),
       metadata: { teamName, last_fetched_at: null },
     },
