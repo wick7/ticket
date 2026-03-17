@@ -41,12 +41,19 @@ const URGENCY_STYLES: Record<string, string> = {
   high: "text-red-400",
 };
 
+interface Board {
+  id: string;
+  name: string;
+}
+
 interface Props {
   ticket: Ticket;
   onSave: (ticket: Ticket) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
   onTimeLogged: (id: string, newTotal: number) => void;
+  currentBoardId?: string;
+  onBoardChanged?: (ticketId: string, newBoardId: string | null) => void;
 }
 
 /** Format total minutes as "Xh Ym", "Xh", or "Ym". */
@@ -194,7 +201,7 @@ function TimeLogSection({ entries, totalMinutes, loading, onEntryDateChange, onE
   );
 }
 
-export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogged }: Props) {
+export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogged, currentBoardId, onBoardChanged }: Props) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [form, setForm] = useState({ ...ticket });
   const [saving, setSaving] = useState(false);
@@ -204,10 +211,14 @@ export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogge
   const [presetCategories, setPresetCategories] = useState<string[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntryData[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [selectedBoardId, setSelectedBoardId] = useState<string>(currentBoardId ?? "");
+  const [movingBoard, setMovingBoard] = useState(false);
 
   useEffect(() => {
     fetch("/api/config/companies").then((r) => r.json()).then((d: Array<{name: string}>) => setPresetCompanies(d.map((x) => x.name))).catch(() => {});
     fetch("/api/config/categories").then((r) => r.json()).then((d: Array<{name: string}>) => setPresetCategories(d.map((x) => x.name))).catch(() => {});
+    fetch("/api/boards").then((r) => r.json()).then((d: Board[]) => setBoards(d)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -221,6 +232,17 @@ export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogge
 
   async function handleSave() {
     setSaving(true);
+    // Move board if changed
+    if (selectedBoardId !== (currentBoardId ?? "")) {
+      setMovingBoard(true);
+      await fetch(`/api/tickets/${ticket.id}/move-board`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetBoardId: selectedBoardId || null }),
+      });
+      setMovingBoard(false);
+      onBoardChanged?.(ticket.id, selectedBoardId || null);
+    }
     await onSave(form);
     setSaving(false);
   }
@@ -446,6 +468,22 @@ export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogge
                   </select>
                 </div>
               </div>
+
+              {boards.length > 0 && (
+                <div>
+                  <label className="text-xs text-zinc-400 font-medium block mb-1">Board</label>
+                  <select
+                    value={selectedBoardId}
+                    onChange={(e) => setSelectedBoardId(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Default (no board)</option>
+                    {boards.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="text-xs text-zinc-500 pt-1">
                 Source: {form.sourceService} · Created {new Date(form.createdAt).toLocaleDateString()}

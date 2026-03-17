@@ -13,9 +13,10 @@ const URGENCIES = [
 interface Props {
   onClose: () => void;
   onCreated: (ticket: Ticket) => void;
+  boardId?: string;
 }
 
-export function CreateTicketModal({ onClose, onCreated }: Props) {
+export function CreateTicketModal({ onClose, onCreated, boardId }: Props) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [requester, setRequester] = useState("");
@@ -37,7 +38,7 @@ export function CreateTicketModal({ onClose, onCreated }: Props) {
     const res = await fetch("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title.trim(), body, requester, company, category, urgency }),
+      body: JSON.stringify({ title: title.trim(), body, requester, company, category, urgency, boardId }),
     });
     const ticket = await res.json() as Ticket;
     setSaving(false);

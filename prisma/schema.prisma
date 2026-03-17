@@ -22,6 +22,7 @@ model User {
   seenMessages     SeenMessage[]
   presetCompanies  PresetCompany[]
   presetCategories PresetCategory[]
+  statusColumns    StatusColumn[]
 }
 
 model OAuthToken {
@@ -130,6 +131,20 @@ model PresetCategory {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([name, userId])
+}
+
+model StatusColumn {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  color     String   @default("#6b7280")
+  key       String   // maps to ticket.status value (e.g. "todo", "in_progress")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
 }
 
 model TimeEntry {
