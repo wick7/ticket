@@ -51,8 +51,10 @@ export interface FetchedMessage {
   timestamp: Date;
 }
 
-export async function fetchSlackMessages(): Promise<FetchedMessage[]> {
-  const record = await prisma.oAuthToken.findUnique({ where: { service: "slack" } });
+export async function fetchSlackMessages(userId: string): Promise<FetchedMessage[]> {
+  const record = await prisma.oAuthToken.findUnique({
+    where: { service_userId: { service: "slack", userId } },
+  });
   if (!record) return [];
 
   const token = decrypt(record.token);
@@ -95,7 +97,9 @@ export async function fetchSlackMessages(): Promise<FetchedMessage[]> {
       const msgId = `slack:${channel.id}:${msg.ts}`;
 
       // Skip if already seen
-      const seen = await prisma.seenMessage.findUnique({ where: { id: msgId } });
+      const seen = await prisma.seenMessage.findUnique({
+        where: { messageId_userId: { messageId: msgId, userId } },
+      });
       if (seen) continue;
 
       // Resolve username
@@ -116,7 +120,7 @@ export async function fetchSlackMessages(): Promise<FetchedMessage[]> {
 
   // Update last_fetched_at
   await prisma.oAuthToken.update({
-    where: { service: "slack" },
+    where: { service_userId: { service: "slack", userId } },
     data: {
       metadata: { ...metadata, last_fetched_at: new Date().toISOString() },
     },

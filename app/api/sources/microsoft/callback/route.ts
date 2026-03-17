@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
+import { requireAuth } from "@/lib/auth";
 
 interface TokenResponse {
   access_token?: string;
@@ -16,6 +17,11 @@ interface ProfileResponse {
 }
 
 export async function GET(request: NextRequest) {
+  const userId = await requireAuth(request);
+  if (!userId) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   const error = searchParams.get("error");
@@ -66,9 +72,10 @@ export async function GET(request: NextRequest) {
 
   // Store as "outlook" (covers both Outlook and Teams — same token)
   await prisma.oAuthToken.upsert({
-    where: { service: "outlook" },
+    where: { service_userId: { service: "outlook", userId } },
     create: {
       service: "outlook",
+      userId,
       token: encrypt(tokenData.access_token),
       refreshToken: tokenData.refresh_token ? encrypt(tokenData.refresh_token) : null,
       expiresAt,

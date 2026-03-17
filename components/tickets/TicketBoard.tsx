@@ -48,9 +48,10 @@ interface Filters {
 interface TicketBoardProps {
   savedFilter?: Partial<Filters>;
   title?: string;
+  boardId?: string;
 }
 
-export function TicketBoard({ savedFilter, title = "All Tickets" }: TicketBoardProps) {
+export function TicketBoard({ savedFilter, title = "All Tickets", boardId }: TicketBoardProps) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filters, setFilters] = useState<Filters>({
     company: savedFilter?.company ?? "",
@@ -78,12 +79,13 @@ export function TicketBoard({ savedFilter, title = "All Tickets" }: TicketBoardP
     if (filters.status) params.set("status", filters.status);
     if (filters.urgency) params.set("urgency", filters.urgency);
     if (filters.sourceService) params.set("sourceService", filters.sourceService);
+    if (boardId) params.set("boardId", boardId);
 
     const res = await fetch(`/api/tickets?${params.toString()}`);
     const data = await res.json() as Ticket[];
     setTickets(data);
     setLoading(false);
-  }, [filters]);
+  }, [filters, boardId]);
 
   useEffect(() => {
     fetchTickets();

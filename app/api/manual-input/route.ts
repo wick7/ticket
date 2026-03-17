@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { classifyMessage } from "@/lib/ai/classifier";
 import { prisma } from "@/lib/db";
 import { generateTicketNumber } from "@/lib/tickets";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  const userId = await requireAuth(request);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { message, senderName, company, category } = await request.json() as {
       message: string;
@@ -34,11 +38,13 @@ export async function POST(request: NextRequest) {
       const ticketNumber = await generateTicketNumber(resolvedCompany);
 
       await prisma.ticket.updateMany({
+        where: { userId },
         data: { orderIndex: { increment: 1 } },
       });
 
       const ticket = await prisma.ticket.create({
         data: {
+          userId,
           title: result.title!,
           body: result.body!,
           requester: result.requester ?? senderName ?? "Unknown",
