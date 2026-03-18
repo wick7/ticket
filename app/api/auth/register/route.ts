@@ -20,6 +20,10 @@ export async function POST(request: NextRequest) {
     data: { email, passwordHash, name: name?.trim() ?? "" },
   });
 
+  await prisma.board.create({
+    data: { userId: user.id, name: "My Board", savedFilter: {} },
+  });
+
   const token = await createToken(user.id, user.email);
 
   const response = NextResponse.json({ success: true });

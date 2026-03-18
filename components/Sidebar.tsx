@@ -46,11 +46,14 @@ export function Sidebar() {
   }
 
   async function handleDeleteBoard(id: string) {
+    if (boards.length <= 1) return;
     setDeletingId(id);
-    await fetch(`/api/boards/${id}`, { method: "DELETE" });
-    setBoards((prev) => prev.filter((b) => b.id !== id));
+    const res = await fetch(`/api/boards/${id}`, { method: "DELETE" });
+    if (!res.ok) { setDeletingId(null); return; }
+    const remaining = boards.filter((b) => b.id !== id);
+    setBoards(remaining);
     setDeletingId(null);
-    if (pathname === `/boards/${id}`) router.push("/dashboard");
+    if (pathname === `/boards/${id}`) router.push(`/boards/${remaining[0].id}`);
   }
 
   const isActive = (href: string) => pathname === href;
@@ -108,37 +111,6 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-5">
-          {/* WORKSPACE */}
-          <div>
-            <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
-              Workspace
-            </p>
-            <div className="space-y-0.5">
-              <NavItem
-                href="/dashboard"
-                label="Board"
-                icon={
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <rect x="14" y="14" width="7" height="7" rx="1" />
-                  </svg>
-                }
-              />
-              <NavItem
-                href="/time"
-                label="Time Log"
-                icon={
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                }
-              />
-            </div>
-          </div>
-
           {/* BOARDS */}
           <div>
             <div className="flex items-center justify-between px-3 pb-1.5">
@@ -187,8 +159,8 @@ export function Sidebar() {
                     </Link>
                     <button
                       onClick={() => handleDeleteBoard(board.id)}
-                      disabled={deletingId === board.id}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 text-zinc-600 hover:text-red-400 transition-all rounded"
+                      disabled={deletingId === board.id || boards.length <= 1}
+                      className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-zinc-600 hover:text-red-400 transition-all rounded ${boards.length <= 1 ? "hidden" : "opacity-0 group-hover:opacity-100"}`}
                       title="Delete board"
                     >
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -199,6 +171,25 @@ export function Sidebar() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+
+          {/* WORKSPACE */}
+          <div>
+            <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
+              Time
+            </p>
+            <div className="space-y-0.5">
+              <NavItem
+                href="/time"
+                label="Time Log"
+                icon={
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                }
+              />
             </div>
           </div>
 
