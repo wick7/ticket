@@ -23,6 +23,12 @@ export async function DELETE(
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+
+  const boardCount = await prisma.board.count({ where: { userId } });
+  if (boardCount <= 1) {
+    return NextResponse.json({ error: "Cannot delete your only board" }, { status: 400 });
+  }
+
   await prisma.board.delete({ where: { id, userId } });
   return NextResponse.json({ success: true });
 }

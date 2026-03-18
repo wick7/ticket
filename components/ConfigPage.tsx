@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { PresetListEditor } from "./config/PresetListEditor";
+import { StatusColumnEditor } from "./config/StatusColumnEditor";
 
 interface Preset { id: string; name: string }
 
@@ -168,6 +169,8 @@ export function ConfigPage({ currentUserId }: { currentUserId: string }) {
         <p className="text-zinc-400 text-sm mt-0.5">Manage predefined companies and categories for tickets.</p>
       </div>
 
+      <StatusColumnEditor />
+
       <PresetListEditor
         title="Companies"
         presets={companies}
@@ -182,12 +185,14 @@ export function ConfigPage({ currentUserId }: { currentUserId: string }) {
         onDelete={deleteCategory}
       />
 
-      {boards.length > 0 && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
-          <div>
-            <h2 className="text-white font-semibold">Board Sharing</h2>
-            <p className="text-zinc-500 text-sm mt-0.5">Invite collaborators to your boards by email.</p>
-          </div>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
+        <div>
+          <h2 className="text-white font-semibold">Board Sharing</h2>
+          <p className="text-zinc-500 text-sm mt-0.5">Invite collaborators to your boards by email.</p>
+        </div>
+        {boards.length === 0 ? (
+          <p className="text-xs text-zinc-600">No boards yet. Create a board from the sidebar to enable sharing.</p>
+        ) : (
           <div className="space-y-2">
             {boards.map((board) => (
               <div key={board.id} className="border border-zinc-800 rounded-lg p-3">
@@ -206,8 +211,8 @@ export function ConfigPage({ currentUserId }: { currentUserId: string }) {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

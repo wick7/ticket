@@ -1,5 +1,16 @@
-import { TicketBoard } from "@/components/tickets/TicketBoard";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
-export default function DashboardPage() {
-  return <TicketBoard />;
+export default async function DashboardPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  const firstBoard = await prisma.board.findFirst({
+    where: { userId: session.userId },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (firstBoard) redirect(`/boards/${firstBoard.id}`);
+  redirect("/login");
 }

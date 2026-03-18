@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const sourceService = searchParams.get("sourceService");
   const boardId = searchParams.get("boardId");
 
-  // For a shared board, return tickets from all board members
+  // Named board: return ONLY tickets explicitly linked to this board
   if (boardId) {
     const board = await prisma.board.findUnique({
       where: { id: boardId },
@@ -23,15 +23,18 @@ export async function GET(request: NextRequest) {
     });
     if (!board) return NextResponse.json({ error: "Board not found" }, { status: 404 });
 
-    // Check access: user must be owner or member
     const isMember = board.userId === userId || board.members.some((m) => m.userId === userId);
     if (!isMember) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const memberIds = [board.userId, ...board.members.map((m) => m.userId)];
+    const boardTickets = await prisma.boardTicket.findMany({
+      where: { boardId },
+      select: { ticketId: true },
+    });
+    const ticketIds = boardTickets.map((bt) => bt.ticketId);
 
     const tickets = await prisma.ticket.findMany({
       where: {
-        userId: { in: memberIds },
+        id: { in: ticketIds },
         ...(company ? { company } : {}),
         ...(status ? { status } : {}),
         ...(urgency ? { urgency } : {}),
@@ -42,6 +45,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(tickets);
   }
 
+  // Default board: all tickets for this user
   const tickets = await prisma.ticket.findMany({
     where: {
       userId,
@@ -63,7 +67,6 @@ export async function POST(request: NextRequest) {
 
   const data = await request.json();
 
-  // Place new ticket at the bottom for this user
   const last = await prisma.ticket.findFirst({
     where: { userId },
     orderBy: { orderIndex: "desc" },
@@ -82,13 +85,26 @@ export async function POST(request: NextRequest) {
       company: resolvedCompany,
       status: data.status ?? "todo",
       urgency: data.urgency ?? "medium",
-      sourceService: "manual",
+      sourceService: data.sourceService ?? "manual",
       sourceRef: data.sourceRef ?? null,
       category: data.category ?? "",
       ticketNumber,
       orderIndex,
     },
   });
+
+  // Link to board if one was provided
+  if (data.boardId) {
+    const board = await prisma.board.findUnique({
+      where: { id: data.boardId },
+      select: { userId: true },
+    });
+    if (board && board.userId === userId) {
+      await prisma.boardTicket.create({
+        data: { boardId: data.boardId, ticketId: ticket.id, orderIndex },
+      });
+    }
+  }
 
   return NextResponse.json(ticket, { status: 201 });
 }
