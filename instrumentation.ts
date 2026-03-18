@@ -9,7 +9,7 @@ export async function register() {
     1000;
 
   console.log(
-    `[TicketFlow] Background sync every ${INTERVAL_MS / 60000} minutes.`
+    `[Simple Ticket AI] Background sync every ${INTERVAL_MS / 60000} minutes.`
   );
 
   async function runSync() {
@@ -81,7 +81,7 @@ export async function register() {
             }
           }
         } catch (e) {
-          console.error(`[TicketFlow] Slack sync error for user ${userId}:`, e);
+          console.error(`[Simple Ticket AI] Slack sync error for user ${userId}:`, e);
         }
 
         // Outlook
@@ -107,7 +107,7 @@ export async function register() {
             }
           }
         } catch (e) {
-          console.error(`[TicketFlow] Outlook sync error for user ${userId}:`, e);
+          console.error(`[Simple Ticket AI] Outlook sync error for user ${userId}:`, e);
         }
 
         // Teams
@@ -133,7 +133,7 @@ export async function register() {
             }
           }
         } catch (e) {
-          console.error(`[TicketFlow] Teams sync error for user ${userId}:`, e);
+          console.error(`[Simple Ticket AI] Teams sync error for user ${userId}:`, e);
         }
 
         // Gmail
@@ -159,21 +159,21 @@ export async function register() {
             }
           }
         } catch (e) {
-          console.error(`[TicketFlow] Gmail sync error for user ${userId}:`, e);
+          console.error(`[Simple Ticket AI] Gmail sync error for user ${userId}:`, e);
         }
 
         if (userTotal > 0) {
-          console.log(`[TicketFlow] User ${userId}: ${userTotal} new ticket${userTotal !== 1 ? "s" : ""}`);
+          console.log(`[Simple Ticket AI] User ${userId}: ${userTotal} new ticket${userTotal !== 1 ? "s" : ""}`);
         }
       }
 
       if (totalCreated > 0) {
         console.log(
-          `[TicketFlow] Sync complete — ${totalCreated} new ticket${totalCreated !== 1 ? "s" : ""} created.`
+          `[Simple Ticket AI] Sync complete — ${totalCreated} new ticket${totalCreated !== 1 ? "s" : ""} created.`
         );
       }
     } catch (e) {
-      console.error("[TicketFlow] Background sync failed:", e);
+      console.error("[Simple Ticket AI] Background sync failed:", e);
     }
   }
 

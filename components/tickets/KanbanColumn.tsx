@@ -15,12 +15,15 @@ export interface StatusColumn {
 
 interface Props {
   column: StatusColumn;
+  columns: StatusColumn[];
   tickets: Ticket[];
   onEditTicket: (ticket: Ticket) => void;
   onAddTicket: () => void;
+  onStatusChange: (id: string, status: string) => void;
+  onUrgencyChange: (id: string, urgency: string) => void;
 }
 
-export function KanbanColumn({ column, tickets, onEditTicket, onAddTicket }: Props) {
+export function KanbanColumn({ column, columns, tickets, onEditTicket, onAddTicket, onStatusChange, onUrgencyChange }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: column.key });
 
   return (
@@ -51,7 +54,10 @@ export function KanbanColumn({ column, tickets, onEditTicket, onAddTicket }: Pro
             <TicketCard
               key={ticket.id}
               ticket={ticket}
+              columns={columns}
               onEdit={() => onEditTicket(ticket)}
+              onStatusChange={onStatusChange}
+              onUrgencyChange={onUrgencyChange}
             />
           ))}
         </SortableContext>

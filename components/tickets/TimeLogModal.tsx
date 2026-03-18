@@ -8,6 +8,7 @@ interface Props {
   currentMinutes: number;
   onLogged: (newTotal: number) => void;
   onClose: () => void;
+  onViewTicket?: () => void;
 }
 
 function parseTimeInput(raw: string): number | null {
@@ -40,7 +41,7 @@ function todayString(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function TimeLogModal({ ticketId, currentMinutes, onLogged, onClose }: Props) {
+export function TimeLogModal({ ticketId, currentMinutes, onLogged, onClose, onViewTicket }: Props) {
   const [input, setInput] = useState("");
   const [date, setDate] = useState(todayString());
   const [error, setError] = useState("");
@@ -108,7 +109,12 @@ export function TimeLogModal({ ticketId, currentMinutes, onLogged, onClose }: Pr
           </div>
         </div>
 
-        <div className="flex gap-2 px-5 pb-4">
+        <div className="flex items-center gap-2 px-5 pb-4">
+          {onViewTicket && (
+            <button onClick={onViewTicket} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors mr-auto">
+              View ticket →
+            </button>
+          )}
           <button
             onClick={onClose}
             className="flex-1 px-3 py-2 text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"

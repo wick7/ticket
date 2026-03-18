@@ -29,6 +29,17 @@ export async function DELETE(
     return NextResponse.json({ error: "Cannot delete your only board" }, { status: 400 });
   }
 
+  // Find all tickets on this board
+  const boardTickets = await prisma.boardTicket.findMany({ where: { boardId: id } });
+  const ticketIds = boardTickets.map((bt) => bt.ticketId);
+
+  // Delete time entries for those tickets
+  if (ticketIds.length > 0) {
+    await prisma.timeEntry.deleteMany({ where: { ticketId: { in: ticketIds } } });
+    await prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } });
+  }
+
+  // Delete the board (cascades to BoardMember, BoardTicket)
   await prisma.board.delete({ where: { id, userId } });
   return NextResponse.json({ success: true });
 }

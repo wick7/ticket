@@ -60,7 +60,7 @@ export function FilterBar({ filters, onChange, tickets }: Props) {
         onChange={(e) => set("company", e.target.value)}
         className={selectClass}
       >
-        <option value="">All companies</option>
+        <option value="">All clients</option>
         {companies.map((c) => (
           <option key={c} value={c}>{c}</option>
         ))}

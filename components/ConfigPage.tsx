@@ -166,13 +166,13 @@ export function ConfigPage({ currentUserId }: { currentUserId: string }) {
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-bold text-white">Configuration</h1>
-        <p className="text-zinc-400 text-sm mt-0.5">Manage predefined companies and categories for tickets.</p>
+        <p className="text-zinc-400 text-sm mt-0.5">Manage predefined clients and categories for tickets.</p>
       </div>
 
       <StatusColumnEditor />
 
       <PresetListEditor
-        title="Companies"
+        title="Clients"
         presets={companies}
         onAdd={addCompany}
         onDelete={deleteCompany}

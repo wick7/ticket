@@ -200,18 +200,19 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+    const originalStatus = activeTicket?.status;
     setActiveTicket(null);
 
     if (!over) return;
 
     const draggedTicket = tickets.find((t) => t.id === active.id);
-    if (!draggedTicket) return;
+    if (!draggedTicket || !originalStatus) return;
 
     const overColumn = columns.find((c) => c.key === over.id);
     const overTicket = tickets.find((t) => t.id === over.id);
-    const targetStatus = overColumn?.key ?? overTicket?.status ?? draggedTicket.status;
+    const targetStatus = overColumn?.key ?? overTicket?.status ?? originalStatus;
 
-    if (targetStatus !== draggedTicket.status) {
+    if (targetStatus !== originalStatus) {
       // Persist status change
       await fetch(`/api/tickets/${draggedTicket.id}`, {
         method: "PATCH",
@@ -248,6 +249,15 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
       body: JSON.stringify({ status }),
     });
     setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+  }
+
+  async function handleUrgencyChange(id: string, urgency: string) {
+    await fetch(`/api/tickets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urgency }),
+    });
+    setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, urgency } : t)));
   }
 
   async function handleTicketUpdate(updated: Ticket) {
@@ -354,7 +364,7 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
             onChange={(e) => setFilters((f) => ({ ...f, company: e.target.value }))}
             className={filterSelectClass}
           >
-            <option value="">Company</option>
+            <option value="">Client</option>
             {companies.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -366,16 +376,6 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
             className={filterSelectClass}
           >
             {URGENCY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-
-          <select
-            value={filters.sourceService}
-            onChange={(e) => setFilters((f) => ({ ...f, sourceService: e.target.value }))}
-            className={filterSelectClass}
-          >
-            {SOURCE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -401,6 +401,7 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Ingest button — to be implemented later
           {ingestResult && (
             <span className="text-xs text-zinc-400">{ingestResult}</span>
           )}
@@ -415,6 +416,7 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
             </svg>
             {ingesting ? "Syncing…" : "Ingest"}
           </button>
+          */}
           <button
             onClick={() => setShowCreateTicket(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-300 bg-zinc-800 border border-zinc-700 rounded-lg hover:border-zinc-600 transition-colors"
@@ -497,9 +499,12 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
                   <KanbanColumn
                     key={col.key}
                     column={col}
+                    columns={columns}
                     tickets={ticketsByStatus[col.key] ?? []}
                     onEditTicket={setEditingTicket}
                     onAddTicket={() => setShowCreateTicket(true)}
+                    onStatusChange={handleStatusChange}
+                    onUrgencyChange={handleUrgencyChange}
                   />
                 ))}
 
