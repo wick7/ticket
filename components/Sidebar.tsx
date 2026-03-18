@@ -9,6 +9,7 @@ interface Board {
   id: string;
   name: string;
   savedFilter: Record<string, string>;
+  members?: { userId: string; role: string }[];
 }
 
 interface User {
@@ -24,6 +25,7 @@ export function Sidebar() {
   const [user, setUser] = useState<User | null>(null);
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteBoard, setConfirmDeleteBoard] = useState<Board | null>(null);
 
   const fetchBoards = useCallback(() => {
     fetch("/api/boards")
@@ -45,9 +47,16 @@ export function Sidebar() {
     router.push("/login");
   }
 
-  async function handleDeleteBoard(id: string) {
+  async function handleDeleteBoard(board: Board) {
     if (boards.length <= 1) return;
+    setConfirmDeleteBoard(board);
+  }
+
+  async function confirmDelete() {
+    if (!confirmDeleteBoard) return;
+    const id = confirmDeleteBoard.id;
     setDeletingId(id);
+    setConfirmDeleteBoard(null);
     const res = await fetch(`/api/boards/${id}`, { method: "DELETE" });
     if (!res.ok) { setDeletingId(null); return; }
     const remaining = boards.filter((b) => b.id !== id);
@@ -104,9 +113,9 @@ export function Sidebar() {
         <div className="px-4 py-4 border-b border-zinc-800/60">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-orange-500 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-white text-xs font-bold">TF</span>
+              <span className="text-white text-xs font-bold">ST</span>
             </div>
-            <span className="font-bold text-white text-sm tracking-tight">TicketFlow</span>
+            <span className="font-bold text-white text-sm tracking-tight">Simple Ticket AI</span>
           </div>
         </div>
 
@@ -158,7 +167,7 @@ export function Sidebar() {
                       <span className="truncate">{board.name}</span>
                     </Link>
                     <button
-                      onClick={() => handleDeleteBoard(board.id)}
+                      onClick={() => handleDeleteBoard(board)}
                       disabled={deletingId === board.id || boards.length <= 1}
                       className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-zinc-600 hover:text-red-400 transition-all rounded ${boards.length <= 1 ? "hidden" : "opacity-0 group-hover:opacity-100"}`}
                       title="Delete board"
@@ -259,6 +268,47 @@ export function Sidebar() {
             router.push(`/boards/${board.id}`);
           }}
         />
+      )}
+
+      {confirmDeleteBoard && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+          onClick={() => setConfirmDeleteBoard(null)}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-sm shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-zinc-800">
+              <h3 className="text-white font-semibold">Delete "{confirmDeleteBoard.name}"?</h3>
+            </div>
+            <div className="px-5 py-4 space-y-2">
+              <p className="text-sm text-zinc-300">
+                This will permanently delete the board and <span className="text-red-400 font-medium">all tickets and logged time</span> associated with it.
+              </p>
+              {(confirmDeleteBoard.members?.length ?? 0) > 1 && (
+                <p className="text-sm text-yellow-400">
+                  ⚠ This board is shared. All members will lose access to the board, its tickets, and any logged time.
+                </p>
+              )}
+              <p className="text-xs text-zinc-500">This action cannot be undone.</p>
+            </div>
+            <div className="flex gap-2 px-5 pb-4">
+              <button
+                onClick={() => setConfirmDeleteBoard(null)}
+                className="flex-1 px-3 py-2 text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-3 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors font-medium"
+              >
+                Delete board
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

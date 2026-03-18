@@ -273,13 +273,13 @@ export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogge
                 ←
               </button>
             )}
-            <h2 className="text-white font-semibold truncate flex items-center gap-2">
+            <h2 className="text-white font-semibold flex items-start gap-2">
               {mode === "view" && form.ticketNumber && (
-                <span className="text-zinc-500 font-mono text-sm font-normal shrink-0">
+                <span className="text-zinc-500 font-mono text-sm font-normal shrink-0 mt-0.5">
                   {form.ticketNumber}
                 </span>
               )}
-              {mode === "view" ? form.title : "Edit Ticket"}
+              {mode === "view" ? <span className="leading-snug">{form.title}</span> : "Edit Ticket"}
             </h2>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors shrink-0 ml-3">
@@ -299,19 +299,15 @@ export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogge
                 <span className={`text-xs font-semibold uppercase ${URGENCY_STYLES[form.urgency] ?? "text-zinc-400"}`}>
                   {form.urgency}
                 </span>
-                <button
-                  onClick={() => setShowTimeLog(true)}
-                  className={`text-xs flex items-center gap-1 transition-colors hover:text-blue-400 ${
+                <span className={`text-xs flex items-center gap-1 ${
                     form.trackedMinutes > 0 ? "text-blue-400" : "text-zinc-500"
-                  }`}
-                  title="Log time"
-                >
+                  }`}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12 6 12 12 16 14" />
                   </svg>
                   {form.trackedMinutes > 0 ? formatMinutes(form.trackedMinutes) : "0"}
-                </button>
+                </span>
                 <span className="text-xs text-zinc-500 ml-auto">
                   {form.requester} · {form.company}
                 </span>
@@ -375,16 +371,22 @@ export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogge
               </button>
               <div className="flex gap-2">
                 <button
-                  onClick={onClose}
-                  className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+                  onClick={() => setShowTimeLog(true)}
+                  className="px-4 py-2 text-sm text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg transition-colors"
                 >
-                  Close
+                  Log time
                 </button>
                 <button
                   onClick={() => setMode("edit")}
                   className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
                 >
                   Edit
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+                >
+                  Close
                 </button>
               </div>
             </div>
@@ -398,8 +400,10 @@ export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogge
                 <input
                   value={form.title}
                   onChange={(e) => set("title", e.target.value)}
+                  maxLength={255}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
                 />
+                <p className="text-xs text-zinc-600 mt-1 text-right">{form.title.length}/255</p>
               </div>
 
               <div>
@@ -422,12 +426,12 @@ export function TicketEditModal({ ticket, onSave, onDelete, onClose, onTimeLogge
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-400 font-medium block mb-1">Company</label>
+                  <label className="text-xs text-zinc-400 font-medium block mb-1">Client</label>
                   <PresetSelect
                     value={form.company}
                     presets={presetCompanies}
                     onChange={(v) => set("company", v)}
-                    placeholder="Select company..."
+                    placeholder="Select client..."
                   />
                 </div>
               </div>

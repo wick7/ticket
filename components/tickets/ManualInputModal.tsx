@@ -93,13 +93,13 @@ export function ManualInputModal({ onClose, onTicketsCreated, onNotTicketable }:
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-zinc-400 font-medium block mb-1">
-                Company <span className="text-zinc-600">(optional)</span>
+                Client <span className="text-zinc-600">(optional)</span>
               </label>
               <PresetSelect
                 value={company}
                 presets={presetCompanies}
                 onChange={setCompany}
-                placeholder="Select company..."
+                placeholder="Select client..."
               />
             </div>
             <div>

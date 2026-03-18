@@ -70,8 +70,10 @@ export function CreateTicketModal({ onClose, onCreated, boardId }: Props) {
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) handleCreate(); }}
               placeholder="What needs to be done?"
+              maxLength={255}
               className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 placeholder-zinc-600"
             />
+            <p className="text-xs text-zinc-600 mt-1 text-right">{title.length}/255</p>
           </div>
 
           <div>
@@ -102,13 +104,13 @@ export function CreateTicketModal({ onClose, onCreated, boardId }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-zinc-400 font-medium block mb-1">
-                Company <span className="text-zinc-600">(optional)</span>
+                Client <span className="text-zinc-600">(optional)</span>
               </label>
               <PresetSelect
                 value={company}
                 presets={presetCompanies}
                 onChange={setCompany}
-                placeholder="Select company..."
+                placeholder="Select client..."
               />
             </div>
             <div>

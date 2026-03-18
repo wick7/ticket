@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { Ticket } from "./tickets/TicketBoard";
 import { TicketEditModal } from "./tickets/TicketEditModal";
 import { formatMinutes } from "./tickets/TicketEditModal";
-import { MoveTimeModal } from "./tickets/MoveTimeModal";
+import { TimeLogModal } from "./tickets/TimeLogModal";
 
 interface TimeEntry {
   id: string;
@@ -18,12 +18,6 @@ interface DayTicket {
   totalMinutes: number;
 }
 
-interface Filters {
-  company: string;
-  status: string;
-  urgency: string;
-  sourceService: string;
-}
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -61,29 +55,47 @@ function groupByTicket(entries: TimeEntry[], dateStr: string): DayTicket[] {
   return Array.from(map.values());
 }
 
+function urgencyColor(urgency: string): string {
+  if (urgency === "high") return "bg-red-500/20 text-red-400";
+  if (urgency === "medium") return "bg-yellow-500/20 text-yellow-400";
+  return "bg-zinc-700 text-zinc-400";
+}
+
+function chipBorderColor(ticket: { urgency: string; status: string }): string {
+  if (ticket.status === "completed") return "border-l-green-500";
+  if (ticket.urgency === "high") return "border-l-red-500";
+  if (ticket.urgency === "medium") return "border-l-yellow-500";
+  return "border-l-zinc-500";
+}
+
+function chipTextColor(ticket: { urgency: string; status: string }): string {
+  if (ticket.status === "completed") return "text-green-400";
+  if (ticket.urgency === "high") return "text-red-400";
+  if (ticket.urgency === "medium") return "text-yellow-400";
+  return "text-zinc-400";
+}
+
 export function TimePage() {
   const now = new Date();
+  const todayStr = toDateString(now.getFullYear(), now.getMonth() + 1, now.getDate());
+
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [filters, setFilters] = useState<Filters>({ company: "", status: "", urgency: "", sourceService: "" });
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState<string>(todayStr);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [seeMoreDay, setSeeMoreDay] = useState<{ label: string; tickets: DayTicket[]; dateStr: string } | null>(null);
-  const [movingTime, setMovingTime] = useState<{ ticketId: string; ticketNumber: string; ticketTitle: string; fromDate: string; totalMinutes: number; ticket: Ticket } | null>(null);
+  const [loggingTime, setLoggingTime] = useState<{ ticketId: string; currentMinutes: number; ticket: Ticket } | null>(null);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ year: String(year), month: String(month) });
-    if (filters.company) params.set("company", filters.company);
-    if (filters.status) params.set("status", filters.status);
-    if (filters.urgency) params.set("urgency", filters.urgency);
-    if (filters.sourceService) params.set("sourceService", filters.sourceService);
     const res = await fetch(`/api/time-entries?${params}`);
     const data = await res.json() as TimeEntry[];
     setEntries(data);
     setLoading(false);
-  }, [year, month, filters]);
+  }, [year, month]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
@@ -97,134 +109,204 @@ export function TimePage() {
   }
 
   const days = getCalendarDays(year, month);
-  const uniqueCompanies = [...new Set(entries.map((e) => e.ticket.company))].sort();
 
-  const filterSelect = (
-    label: string,
-    value: string,
-    onChange: (v: string) => void,
-    options: { value: string; label: string }[]
-  ) => (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500"
-    >
-      <option value="">{label}</option>
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
+  // Right panel computed values
+  const selectedDayTickets = groupByTicket(entries, selectedDay);
+  const selectedDayMinutes = selectedDayTickets.reduce((s, d) => s + d.totalMinutes, 0);
+  const selectedDate = new Date(selectedDay + "T12:00:00");
+  const isSelectedToday = selectedDay === todayStr;
+  const dayLabel = selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-white">Time</h1>
-        <p className="text-zinc-400 text-sm mt-0.5">Track time spent across tickets by day.</p>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        <div className="flex items-center gap-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5">
-          <button onClick={prevMonth} className="text-zinc-400 hover:text-white transition-colors px-1">‹</button>
-          <span className="text-white text-xs font-medium w-28 text-center">{MONTHS[month - 1]} {year}</span>
-          <button onClick={nextMonth} className="text-zinc-400 hover:text-white transition-colors px-1">›</button>
+    <div className="flex h-full overflow-hidden">
+      {/* LEFT: calendar area */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Header bar */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-800 shrink-0">
+          <h1 className="text-lg font-bold text-white">Calendar</h1>
+          <div className="flex items-center gap-2">
+            <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">‹</button>
+            <span className="text-white text-sm font-semibold w-28 text-center">{MONTHS[month - 1]} {year}</span>
+            <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors">›</button>
+            <button
+              onClick={() => { setYear(now.getFullYear()); setMonth(now.getMonth() + 1); setSelectedDay(todayStr); }}
+              className="px-3 py-1.5 text-sm text-zinc-300 hover:text-white bg-zinc-800 border border-zinc-700 rounded-lg hover:bg-zinc-700 transition-colors"
+            >
+              Today
+            </button>
+          </div>
         </div>
 
-        <div className="w-px h-5 bg-zinc-700" />
+        {/* Calendar grid (full height) */}
+        {loading ? (
+          <div className="text-zinc-500 text-sm py-12 text-center">Loading...</div>
+        ) : (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {/* Day-of-week headers */}
+            <div className="grid grid-cols-7 border-b border-zinc-800 shrink-0">
+              {DOW.map((d) => (
+                <div key={d} className="py-2 text-center text-xs text-zinc-500 font-medium uppercase tracking-wide">{d}</div>
+              ))}
+            </div>
 
-        {filterSelect("All companies", filters.company, (v) => setFilters((f) => ({ ...f, company: v })),
-          uniqueCompanies.map((c) => ({ value: c, label: c })))}
-        {filterSelect("All statuses", filters.status, (v) => setFilters((f) => ({ ...f, status: v })), [
-          { value: "todo", label: "To Do" },
-          { value: "in_progress", label: "In Progress" },
-          { value: "blocked", label: "Blocked" },
-          { value: "not_needed", label: "Not Needed" },
-          { value: "completed", label: "Completed" },
-        ])}
-        {filterSelect("All urgencies", filters.urgency, (v) => setFilters((f) => ({ ...f, urgency: v })), [
-          { value: "low", label: "Low" },
-          { value: "medium", label: "Medium" },
-          { value: "high", label: "High" },
-        ])}
-        {filterSelect("All sources", filters.sourceService, (v) => setFilters((f) => ({ ...f, sourceService: v })), [
-          { value: "slack", label: "Slack" },
-          { value: "outlook", label: "Outlook" },
-          { value: "teams", label: "Teams" },
-          { value: "manual", label: "Manual" },
-        ])}
-      </div>
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 divide-x divide-y divide-zinc-800 overflow-y-auto flex-1">
+              {days.map((day, i) => {
+                if (day === null) {
+                  return <div key={`empty-${i}`} className="bg-zinc-900/20" />;
+                }
 
-      {/* Calendar */}
-      {loading ? (
-        <div className="text-zinc-500 text-sm py-12 text-center">Loading...</div>
-      ) : (
-        <div className="border border-zinc-800 rounded-xl overflow-hidden">
-          {/* Day-of-week headers */}
-          <div className="grid grid-cols-7 bg-zinc-800/60 border-b border-zinc-800">
-            {DOW.map((d) => (
-              <div key={d} className="py-2 text-center text-xs text-zinc-500 font-medium">{d}</div>
-            ))}
-          </div>
+                const dateStr = toDateString(year, month, day);
+                const dayTickets = groupByTicket(entries, dateStr);
+                const isToday = dateStr === todayStr;
+                const isSelected = dateStr === selectedDay;
+                const visible = dayTickets.slice(0, CHIP_LIMIT);
+                const overflow = dayTickets.length - CHIP_LIMIT;
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 divide-x divide-y divide-zinc-800">
-            {days.map((day, i) => {
-              if (day === null) {
-                return <div key={`empty-${i}`} className="min-h-[110px] bg-zinc-900/20" />;
-              }
-
-              const dateStr = toDateString(year, month, day);
-              const dayTickets = groupByTicket(entries, dateStr);
-              const isToday = dateStr === toDateString(now.getFullYear(), now.getMonth() + 1, now.getDate());
-              const visible = dayTickets.slice(0, CHIP_LIMIT);
-              const overflow = dayTickets.length - CHIP_LIMIT;
-
-              return (
-                <div key={day} className="min-h-[110px] p-2 bg-zinc-900">
-                  <div className={`text-xs font-medium mb-1.5 w-5 h-5 flex items-center justify-center rounded-full ${
-                    isToday ? "bg-blue-600 text-white" : "text-zinc-500"
-                  }`}>
-                    {day}
-                  </div>
-
-                  {dayTickets.length > 0 && (
-                    <div className="space-y-0.5">
-                      {visible.map(({ ticket, totalMinutes }) => (
-                        <button
-                          key={ticket.id}
-                          onClick={() => setMovingTime({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, ticketTitle: ticket.title, fromDate: dateStr, totalMinutes, ticket })}
-                          className="w-full text-left flex items-center justify-between gap-1 px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
-                        >
-                          <span className="text-xs text-zinc-300 font-mono truncate">
-                            {ticket.ticketNumber || ticket.company || "Ticket"}
-                          </span>
-                          <span className="text-xs text-blue-400 font-medium shrink-0">
-                            {formatMinutes(totalMinutes)}
-                          </span>
-                        </button>
-                      ))}
-
-                      {overflow > 0 && (
-                        <button
-                          onClick={() => setSeeMoreDay({
-                            label: new Date(year, month - 1, day).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }),
-                            tickets: dayTickets,
-                            dateStr,
-                          })}
-                          className="w-full text-left px-1.5 py-0.5 rounded bg-zinc-800/60 hover:bg-zinc-700 transition-colors text-xs text-zinc-500 hover:text-zinc-300"
-                        >
-                          +{overflow} more
-                        </button>
-                      )}
+                return (
+                  <div
+                    key={day}
+                    onClick={() => setSelectedDay(dateStr)}
+                    className={`min-h-[110px] p-2 cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-zinc-800 ring-1 ring-inset ring-orange-500/40"
+                        : "bg-zinc-900 hover:bg-zinc-800/50"
+                    }`}
+                  >
+                    <div className={`text-xs font-medium mb-1.5 w-5 h-5 flex items-center justify-center rounded-full ${
+                      isToday ? "bg-orange-500 text-white" : "text-zinc-500"
+                    }`}>
+                      {day}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+
+                    {dayTickets.length > 0 && (
+                      <div className="space-y-1 mt-1">
+                        {visible.map(({ ticket, totalMinutes }) => {
+                          const isDone = ticket.status === "completed";
+                          return (
+                            <div
+                              key={ticket.id}
+                              className={`ml-1 flex items-center justify-between gap-1 pl-2 pr-1.5 py-0.5 rounded-sm bg-zinc-800/80 border-l-2 ${chipBorderColor(ticket)}`}
+                            >
+                              <span className={`text-[11px] font-mono truncate ${isDone ? "line-through text-zinc-500" : "text-zinc-300"}`}>
+                                {ticket.ticketNumber || ticket.company || "Ticket"}
+                              </span>
+                              <span className={`text-[11px] font-semibold shrink-0 ${chipTextColor(ticket)}`}>
+                                {isDone ? "Done" : formatMinutes(totalMinutes)}
+                              </span>
+                            </div>
+                          );
+                        })}
+
+                        {overflow > 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSeeMoreDay({
+                              label: new Date(year, month - 1, day).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }),
+                              tickets: dayTickets,
+                              dateStr,
+                            }); }}
+                            className="w-full text-left px-1.5 py-0.5 rounded bg-zinc-800/60 hover:bg-zinc-700 transition-colors text-xs text-zinc-500 hover:text-zinc-300"
+                          >
+                            +{overflow} more
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* RIGHT: day detail panel */}
+      <div className="w-80 shrink-0 border-l border-zinc-800 flex flex-col overflow-hidden bg-zinc-950">
+        {/* Day header */}
+        <div className="px-5 pt-5 pb-4 shrink-0">
+          <p className="text-white text-lg font-bold">{dayLabel}</p>
+          <p className="text-sm text-zinc-500 mt-0.5">
+            {isSelectedToday ? "Today · " : ""}{selectedDayTickets.length} ticket{selectedDayTickets.length !== 1 ? "s" : ""} · {formatMinutes(selectedDayMinutes)} logged
+          </p>
         </div>
-      )}
+
+        <div className="overflow-y-auto flex-1 px-4 pb-4 space-y-4">
+          {/* TIME LOGGED card */}
+          <div className="bg-zinc-900 rounded-xl overflow-hidden">
+            <div className="px-4 pt-4 pb-2">
+              <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-3">Time Logged</p>
+              {selectedDayTickets.length === 0 && (
+                <p className="text-xs text-zinc-600 pb-2">No time logged</p>
+              )}
+              {selectedDayTickets.map(({ ticket, totalMinutes }) => (
+                <div key={ticket.id} className="flex items-center justify-between py-1.5">
+                  <span className="text-sm text-zinc-300 truncate pr-3">
+                    {ticket.ticketNumber} · {ticket.title}
+                  </span>
+                  <button
+                    onClick={() => setLoggingTime({ ticketId: ticket.id, currentMinutes: ticket.trackedMinutes, ticket })}
+                    className="text-sm font-bold text-white hover:text-orange-400 shrink-0 transition-colors tabular-nums"
+                  >
+                    {formatMinutes(totalMinutes)}
+                  </button>
+                </div>
+              ))}
+            </div>
+            {selectedDayTickets.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800 mt-1">
+                <span className="text-sm font-bold text-white">Total</span>
+                <span className="text-sm font-bold text-orange-400 tabular-nums">{formatMinutes(selectedDayMinutes)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* TICKETS label */}
+          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest px-1">Tickets</p>
+
+          {/* Ticket cards */}
+          {selectedDayTickets.length === 0 && (
+            <p className="text-xs text-zinc-600 px-1">No tickets for this day</p>
+          )}
+          {selectedDayTickets.map(({ ticket, totalMinutes }) => {
+            const isDone = ticket.status === "completed";
+            const borderColor = isDone ? "border-l-green-500" : ticket.urgency === "high" ? "border-l-red-500" : ticket.urgency === "medium" ? "border-l-yellow-500" : "border-l-zinc-500";
+            const badgeStyle = isDone
+              ? "border border-green-600 text-green-400"
+              : ticket.urgency === "high"
+              ? "border border-red-600 text-red-400"
+              : ticket.urgency === "medium"
+              ? "border border-yellow-600 text-yellow-400"
+              : "border border-zinc-600 text-zinc-400";
+            const badgeLabel = isDone ? "Done" : ticket.urgency === "high" ? "High" : ticket.urgency === "medium" ? "Med" : "Low";
+
+            return (
+              <div
+                key={ticket.id}
+                onClick={() => setSelectedTicket(ticket)}
+                className={`bg-zinc-900 rounded-xl border-l-4 ${borderColor} px-4 py-3 cursor-pointer hover:bg-zinc-800/70 transition-colors`}
+              >
+                <p className={`text-sm font-semibold leading-snug mb-2 ${isDone ? "line-through text-zinc-500" : "text-white"}`}>
+                  {ticket.title}
+                </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${badgeStyle}`}>
+                      {badgeLabel}
+                    </span>
+                    <span className="text-xs text-zinc-500 font-mono">{ticket.ticketNumber}</span>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setLoggingTime({ ticketId: ticket.id, currentMinutes: ticket.trackedMinutes, ticket }); }}
+                    className="text-sm font-bold text-orange-400 hover:text-orange-300 shrink-0 transition-colors tabular-nums"
+                  >
+                    {formatMinutes(totalMinutes)}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* "See more" modal */}
       {seeMoreDay && (
@@ -244,7 +326,7 @@ export function TimePage() {
               {seeMoreDay.tickets.map(({ ticket, totalMinutes }) => (
                 <li key={ticket.id}>
                   <button
-                    onClick={() => { setMovingTime({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, ticketTitle: ticket.title, fromDate: seeMoreDay.dateStr, totalMinutes, ticket }); setSeeMoreDay(null); }}
+                    onClick={() => { setSelectedDay(seeMoreDay.dateStr); setSeeMoreDay(null); }}
                     className="w-full flex items-center justify-between px-5 py-3 hover:bg-zinc-800 transition-colors text-left"
                   >
                     <div className="min-w-0">
@@ -264,17 +346,17 @@ export function TimePage() {
         </div>
       )}
 
-      {/* Move time modal */}
-      {movingTime && (
-        <MoveTimeModal
-          ticketId={movingTime.ticketId}
-          ticketNumber={movingTime.ticketNumber}
-          ticketTitle={movingTime.ticketTitle}
-          fromDate={movingTime.fromDate}
-          totalMinutes={movingTime.totalMinutes}
-          onMoved={() => { setMovingTime(null); fetchEntries(); }}
-          onViewTicket={() => { setSelectedTicket(movingTime.ticket); setMovingTime(null); }}
-          onClose={() => setMovingTime(null)}
+      {/* Log time modal */}
+      {loggingTime && (
+        <TimeLogModal
+          ticketId={loggingTime.ticketId}
+          currentMinutes={loggingTime.currentMinutes}
+          onLogged={(newTotal) => {
+            setLoggingTime(null);
+            fetchEntries();
+          }}
+          onViewTicket={() => { setSelectedTicket(loggingTime.ticket); setLoggingTime(null); }}
+          onClose={() => setLoggingTime(null)}
         />
       )}
 
