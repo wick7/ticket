@@ -41,12 +41,15 @@ export async function POST(request: NextRequest) {
   }
 
   const { name, color, key } = await request.json() as { name?: string; color?: string; key?: string };
-  if (!name?.trim() || !key?.trim()) {
-    return NextResponse.json({ error: "name and key are required" }, { status: 400 });
+  if (!name?.trim()) {
+    return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
+  const slug = key?.trim()
+    || name.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+
   const column = await prisma.statusColumn.create({
-    data: { userId, name: name.trim(), color: color ?? "#6b7280", key: key.trim(), order: count },
+    data: { userId, name: name.trim(), color: color ?? "#6b7280", key: slug, order: count },
   });
 
   return NextResponse.json(column, { status: 201 });
