@@ -8,9 +8,10 @@ interface Props {
   onClose: () => void;
   onTicketsCreated: (tickets: Ticket[]) => void;
   onNotTicketable: (reasoning: string) => void;
+  boardId?: string;
 }
 
-export function ManualInputModal({ onClose, onTicketsCreated, onNotTicketable }: Props) {
+export function ManualInputModal({ onClose, onTicketsCreated, onNotTicketable, boardId }: Props) {
   const [message, setMessage] = useState("");
   const [senderName, setSenderName] = useState("");
   const [company, setCompany] = useState("");
@@ -33,7 +34,7 @@ export function ManualInputModal({ onClose, onTicketsCreated, onNotTicketable }:
     const res = await fetch("/api/manual-input", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, senderName, company, category }),
+      body: JSON.stringify({ message, senderName, company, category, boardId }),
     });
 
     const data = await res.json() as

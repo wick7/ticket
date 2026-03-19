@@ -76,6 +76,25 @@ export async function POST(request: NextRequest) {
   const resolvedCompany = data.company ?? "Unknown";
   const ticketNumber = await generateTicketNumber(resolvedCompany);
 
+  // Ensure the company exists in presets so it appears in all dropdowns
+  if (resolvedCompany && resolvedCompany !== "Unknown") {
+    await prisma.presetCompany.upsert({
+      where: { name_userId: { name: resolvedCompany, userId } },
+      update: {},
+      create: { name: resolvedCompany, userId },
+    });
+  }
+
+  // Ensure the category exists in presets
+  const resolvedCategory = data.category?.trim();
+  if (resolvedCategory) {
+    await prisma.presetCategory.upsert({
+      where: { name_userId: { name: resolvedCategory, userId } },
+      update: {},
+      create: { name: resolvedCategory, userId },
+    });
+  }
+
   const ticket = await prisma.ticket.create({
     data: {
       userId,

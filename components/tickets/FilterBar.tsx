@@ -37,6 +37,7 @@ const SOURCE_OPTIONS = [
   { value: "outlook", label: "Outlook" },
   { value: "teams", label: "Teams" },
   { value: "manual", label: "Manual" },
+  { value: "ai", label: "Ai" },
 ];
 
 export function FilterBar({ filters, onChange, tickets }: Props) {

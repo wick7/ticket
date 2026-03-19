@@ -24,6 +24,7 @@ const SOURCE_LABEL: Record<string, string> = {
   teams: "teams",
   gmail: "gmail",
   manual: "manual",
+  ai: "Ai",
 };
 
 function timeAgo(dateStr: string): string {
@@ -145,7 +146,7 @@ export function TicketCard({ ticket, onEdit, onStatusChange, onUrgencyChange, co
           )}
         </div>
 
-        <span className="text-[10px] text-zinc-500 bg-zinc-700/60 px-1.5 py-0.5 rounded">
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ${ticket.sourceService === "ai" ? "text-orange-400 bg-orange-500/15" : "text-zinc-500 bg-zinc-700/60"}`}>
           {SOURCE_LABEL[ticket.sourceService] ?? ticket.sourceService}
         </span>
       </div>

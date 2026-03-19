@@ -9,11 +9,12 @@ export async function POST(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { message, senderName, company, category } = await request.json() as {
+    const { message, senderName, company, category, boardId } = await request.json() as {
       message: string;
       senderName?: string;
       company?: string;
       category?: string;
+      boardId?: string;
     };
 
     if (!message?.trim()) {
@@ -37,6 +38,25 @@ export async function POST(request: NextRequest) {
       const resolvedCompany = result.company ?? company ?? "Unknown";
       const ticketNumber = await generateTicketNumber(resolvedCompany);
 
+      // Ensure the company exists in presets so it appears in all dropdowns
+      if (resolvedCompany && resolvedCompany !== "Unknown") {
+        await prisma.presetCompany.upsert({
+          where: { name_userId: { name: resolvedCompany, userId } },
+          update: {},
+          create: { name: resolvedCompany, userId },
+        });
+      }
+
+      // Ensure the category exists in presets
+      const resolvedCategory = (result.category ?? category)?.trim();
+      if (resolvedCategory) {
+        await prisma.presetCategory.upsert({
+          where: { name_userId: { name: resolvedCategory, userId } },
+          update: {},
+          create: { name: resolvedCategory, userId },
+        });
+      }
+
       await prisma.ticket.updateMany({
         where: { userId },
         data: { orderIndex: { increment: 1 } },
@@ -51,12 +71,26 @@ export async function POST(request: NextRequest) {
           company: resolvedCompany,
           status: "todo",
           urgency: result.urgency ?? "medium",
-          sourceService: "manual",
+          sourceService: "ai",
           category: category ?? "",
           ticketNumber,
           orderIndex: 0,
         },
       });
+
+      // Link to board if one was provided
+      if (boardId) {
+        const board = await prisma.board.findUnique({
+          where: { id: boardId },
+          select: { userId: true },
+        });
+        if (board && board.userId === userId) {
+          await prisma.boardTicket.create({
+            data: { boardId, ticketId: ticket.id, orderIndex: 0 },
+          });
+        }
+      }
+
       tickets.push(ticket);
     }
 
