@@ -63,6 +63,7 @@ const SOURCE_OPTIONS = [
   { value: "teams", label: "Teams" },
   { value: "gmail", label: "Gmail" },
   { value: "manual", label: "Manual" },
+  { value: "ai", label: "Ai" },
 ];
 
 export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoardProps) {
@@ -326,8 +327,8 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
                         }`}>
                           {ticket.urgency === "high" ? "High" : ticket.urgency === "medium" ? "Med" : "Low"}
                         </span>
-                        <span className="text-[10px] text-zinc-500 bg-zinc-700/60 px-1.5 py-0.5 rounded">
-                          {ticket.sourceService}
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${ticket.sourceService === "ai" ? "text-orange-400 bg-orange-500/15" : "text-zinc-500 bg-zinc-700/60"}`}>
+                          {ticket.sourceService === "ai" ? "Ai" : ticket.sourceService}
                         </span>
                       </div>
                       <p className="text-white text-sm font-medium line-clamp-2 mb-2">{ticket.title}</p>
@@ -559,6 +560,7 @@ export function TicketBoard({ savedFilter, title = "Board", boardId }: TicketBoa
       {showManualInput && (
         <ManualInputModal
           onClose={() => setShowManualInput(false)}
+          boardId={boardId}
           onTicketsCreated={(t) => {
             setTickets((prev) => [...t, ...prev]);
             setShowManualInput(false);
